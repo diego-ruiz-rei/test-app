@@ -85,10 +85,11 @@ spec:
         }
         stage('Build Image') {
             steps {
-                docker.withRegistry('http://nexus-sonatype-nexus:8080/', 'nexus') {
-                    def customImage = docker.build("test-app:${env.BUILD_ID}")
-                    customImage.push()
-                }
+                sh 'echo "hi"'
+                //docker.withRegistry('http://nexus-sonatype-nexus:8080/', 'nexus') {
+                    // def customImage = docker.build("test-app:${env.BUILD_ID}")
+                    // customImage.push()
+                //}
             }
         }
     }
