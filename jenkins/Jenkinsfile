@@ -14,8 +14,8 @@ spec:
     command:
     - cat
     tty: true
-  - name: busybox
-    image: busybox
+  - name: docker
+    image: docker
     command:
     - cat
     tty: true
@@ -42,6 +42,17 @@ spec:
                     sh 'mvn -B -DskipTests clean package'
                 }
             }
+        }
+        stage('Tests') {
+            steps {
+                container('maven') {
+                    // Report back to github: Status Check PENDING
+                    //notifyGithubStatusCheck('PENDING', 'Continuous integration: Run unit test!')
+
+                    sh "mvn test"
+                    //step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
+                }
+            } 
         }
     }
 }
