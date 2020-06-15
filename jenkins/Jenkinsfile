@@ -87,7 +87,7 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        docker.withRegistry('http://nexus-sonatype-nexus:8080/', 'nexus') {
+                        docker.withRegistry('http://sonatype-nexus-service:8083/', 'nexus') {
                             def customImage = docker.build("test-app:${env.BUILD_ID}")
                             customImage.push()
                         }
