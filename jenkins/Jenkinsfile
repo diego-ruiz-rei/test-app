@@ -54,5 +54,12 @@ spec:
                 }
             } 
         }
+        stage('Sonar') {
+            steps {
+                container('maven') {
+                    sh 'mvn sonar:sonar jacoco:report -Dsonar.login=admin -Dsonar.password=admin123 -Dsonar.host.url=http://sonarqube-sonarqube:9000 -DskipTests=true'
+                }
+            }
+        }
     }
 }
