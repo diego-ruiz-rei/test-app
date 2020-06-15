@@ -1,14 +1,14 @@
 #!groovy
 // This script works with native Jenkins pipeline
 // Jenkins declarative Pipeline as it is the future: https://stackoverflow.com/questions/44657896/jenkins-pipeline-jenkinsfile-node-and-pipeline-directives
-library identifier: "pipeline-library@master",
-        retriever: modernSCM(
-                [
-                        $class: "GitSCMSource",
-                        //remote: "https://github.com/redhat-cop/pipeline-library.git"
-                        remote: "https://github.com/REI-Systems/pipeline-library.git"
-                ]
-        )
+// library identifier: "pipeline-library@master",
+//         retriever: modernSCM(
+//                 [
+//                         $class: "GitSCMSource",
+//                         //remote: "https://github.com/redhat-cop/pipeline-library.git"
+//                         remote: "https://github.com/REI-Systems/pipeline-library.git"
+//                 ]
+//         )
 
 pipeline { 
     agent {
