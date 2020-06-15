@@ -17,7 +17,15 @@
 	<properties>
 		<java.version>1.8</java.version>
 	</properties>
-
+	<properties>
+        <java.version>1.8</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        
+        <jacoco.version>0.8.3</jacoco.version>
+        <sonar.cpd.exclusions>src/main/java/**/model/*.java, src/main/java/**/dto/*.java </sonar.cpd.exclusions>
+        <sonar.exclusions>src/main/java/**/AppSpringBoot.java, src/main/java/**/filter/CustomCORSFilter.java, src/main/java/**/config/*.java, src/main/java/**/utility/*.java</sonar.exclusions>
+    </properties>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
