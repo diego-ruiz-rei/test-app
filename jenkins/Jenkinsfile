@@ -1,13 +1,27 @@
 pipeline { 
     agent {
-        label 'mylabel'
-        // kubernetes {
-        //     label 'test-app'  // all your pods will be named with this prefix, followed by a unique id
-        //     idleMinutes 5  // how long the pod will live after no jobs have run on it
-        //     yamlFile 'jenkins/build.yaml'  // path to the pod definition relative to the root of our project 
-        //     defaultContainer 'maven'  // define a default container if more than a few stages use it, will default to jnlp container
-        // }
+    kubernetes {
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    some-label: some-label-value
+spec:
+  containers:
+  - name: maven
+    image: maven:alpine
+    command:
+    - cat
+    tty: true
+  - name: busybox
+    image: busybox
+    command:
+    - cat
+    tty: true
+"""
     }
+  }
     
     options {
         // set a timeout of 20 minutes for this pipeline
@@ -24,17 +38,10 @@ pipeline {
         }
         stage('Build') { 
             steps { 
-               sh 'mvn -B -DskipTests clean package'
+                container('maven') {
+                    sh 'mvn -B -DskipTests clean package'
+                }
             }
-        }
-        stage('Tests') {
-            steps {
-                // Report back to github: Status Check PENDING
-                //notifyGithubStatusCheck('PENDING', 'Continuous integration: Run unit test!')
-
-                sh "mvn test"
-                //step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
-            } 
         }
     }
 }
