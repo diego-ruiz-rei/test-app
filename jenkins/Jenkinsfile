@@ -79,10 +79,10 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        //docker.withRegistry('http://sonatype-nexus-service:8083/repository/docker/', 'nexus') {
-                        def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}")
-                        customImage.push()
-                        //}
+                        docker.withRegistry('', 'dockerhub') {
+                            def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}")
+                            customImage.push()
+                        }
                     }
                 }
             }
