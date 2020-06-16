@@ -108,7 +108,7 @@ spec:
                     sh "git clone https://$GIT_CREDS_USR:$GIT_CREDS_PSW@github.com/diego-ruiz-rei/test-app-deploy.git"
                     sh "git config --global user.email 'ci@ci.com'"
 
-                    dir("argocd-demo-deploy") {
+                    dir("test-app-deploy") {
                         sh "cd ./base && kustomize edit set image diegoruizrei/infra-test:${env.GIT_COMMIT}"
                         sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
                     }
