@@ -18,6 +18,6 @@ public class HelloControllerTests {
 
     @Test
     public void indexTest(){
-        assertTrue(controller.index().equals("Greetings from Spring Boot!"));
+        assertTrue(controller.index().contains("Greetings from Spring Boot!"));
     }
 }
