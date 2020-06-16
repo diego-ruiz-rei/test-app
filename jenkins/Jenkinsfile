@@ -87,7 +87,7 @@ spec:
                 container('docker') {
                     script {
                         docker.withRegistry('', 'dockerhub') {
-                            def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}", "--network=host")
+                            def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}", "--network=host .")
                             customImage.push()
                         }
                     }
