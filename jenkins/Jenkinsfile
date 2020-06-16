@@ -12,26 +12,7 @@
 
 pipeline { 
     agent {
-    kubernetes {
-      yaml """
-apiVersion: v1
-kind: Pod
-metadata:
-  labels:
-    some-label: some-label-value
-spec:
-  containers:
-  - name: maven
-    image: maven:alpine
-    command:
-    - cat
-    tty: true
-  - name: docker
-    image: docker:latest
-    command:
-    - cat
-    tty: true
-"""
+        label "default"
     }
   }
     
@@ -42,25 +23,25 @@ spec:
     stages {
         stage('Build') { 
             steps { 
-                container('maven') {
+                //container('maven') {
                     sh 'mvn -B -DskipTests clean package'
-                }
+                //}
             }
         }
         stage('Tests') {
             steps {
-                container('maven') {
+                //container('maven') {
                     // Report back to github: Status Check PENDING
                     //notifyGithubStatusCheck('PENDING', 'Continuous integration: Run unit test!')
 
                     sh "mvn test"
                     //step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
-                }
+                //}
             } 
         }
         stage('Sonar') {
             steps {
-                container('maven') {
+                //container('maven') {
                     sh 'mvn sonar:sonar jacoco:report -Dsonar.login=admin -Dsonar.password=admin -Dsonar.host.url=http://sonarqube-sonarqube:9000 -DskipTests=true'
                     // timeout(time: 5, unit: 'MINUTES') { // Just in case something goes wrong, pipeline will be killed after a timeout
                     //     def qg = waitForQualityGate() // Reuse taskId previously collected by withSonarQubeEnv
@@ -72,19 +53,19 @@ spec:
                     //         input message: 'SQ Quality Gate Failed, continue?'
                     //     }
                     // }
-                }
+                //}
             }
         }
         stage('Build Image') {
             steps {
-                container('docker') {
+                //container('docker') {
                     script {
                         docker.withRegistry('', 'dockerhub') {
                             def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}")
                             customImage.push()
                         }
                     }
-                }
+                //}
             }
         }
     }
