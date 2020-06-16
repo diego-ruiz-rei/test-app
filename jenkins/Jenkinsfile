@@ -34,6 +34,11 @@ spec:
     volumeMounts:
     - mountPath: /var/run/docker.sock
       name: docker-sock
+  - name: tools
+    image: argoproj/argo-cd-ci-builder:v0.13.1
+    command:
+    - cat
+    tty: true
   volumes:
   - name: docker-sock
     hostPath: 
@@ -82,14 +87,30 @@ spec:
                 }
             }
         }
-        stage('Build Image') {
+        stage('Build Image and push') {
             steps {
                 container('docker') {
                     script {
                         docker.withRegistry('', 'dockerhub') {
-                            def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}", "--network=host .")
+                            def customImage = docker.build("diegoruizrei/infra-test:${env.GIT_COMMIT}", "--network=host .")
                             customImage.push()
                         }
+                    }
+                }
+            }
+        }
+        stage('Deploy develop') {
+            environment {
+                GIT_CREDS = credentials('git')
+            }
+            steps {
+                container('tools') {
+                    sh "git clone https://$GIT_CREDS_USR:$GIT_CREDS_PSW@github.com/diego-ruiz-rei/test-app-deploy.git"
+                    sh "git config --global user.email 'ci@ci.com'"
+
+                    dir("argocd-demo-deploy") {
+                        sh "cd ./base && kustomize edit set image diegoruizrei/infra-test:${env.GIT_COMMIT}"
+                        sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
                     }
                 }
             }
