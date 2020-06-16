@@ -39,15 +39,7 @@ spec:
         // set a timeout of 20 minutes for this pipeline
         timeout(time: 40, unit: 'MINUTES')
     }
-    stages { 
-        stage('Checkout SCM & Initialize') {
-            steps {
-                script {
-                    checkout scm: scm
-
-                }
-            }
-        }
+    stages {
         stage('Build') { 
             steps { 
                 container('maven') {
@@ -87,10 +79,10 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        docker.withRegistry('http://sonatype-nexus-service:8083/', 'nexus') {
-                            def customImage = docker.build("test-app:${env.BUILD_ID}")
-                            customImage.push()
-                        }
+                        //docker.withRegistry('http://sonatype-nexus-service:8083/repository/docker/', 'nexus') {
+                        def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}")
+                        customImage.push()
+                        //}
                     }
                 }
             }
