@@ -26,6 +26,11 @@ spec:
     command:
     - cat
     tty: true
+  - name: docker
+    image: docker:latest
+    command:
+    - cat
+    tty: true
     volumeMounts:
     - mountPath: /var/run/docker.sock
       name: docker-sock
@@ -79,10 +84,10 @@ spec:
         }
         stage('Build Image') {
             steps {
-                container('maven') {
+                container('docker') {
                     script {
                         docker.withRegistry('', 'dockerhub') {
-                            def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}")
+                            def customImage = docker.build("diegoruizrei/infra-test:0.0.${env.BUILD_ID}", "--network=host")
                             customImage.push()
                         }
                     }
