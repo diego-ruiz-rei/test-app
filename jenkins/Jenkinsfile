@@ -14,7 +14,7 @@ pipeline {
     agent {
         label "default"
     }
-  }
+  
     
     options {
         // set a timeout of 20 minutes for this pipeline
