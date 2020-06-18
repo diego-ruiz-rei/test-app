@@ -23,6 +23,7 @@
         <jacoco.version>0.8.3</jacoco.version>
         <sonar.cpd.exclusions>src/main/java/**/model/*.java, src/main/java/**/dto/*.java </sonar.cpd.exclusions>
         <sonar.exclusions>src/main/java/**/AppSpringBoot.java, src/main/java/**/filter/CustomCORSFilter.java, src/main/java/**/config/*.java, src/main/java/**/utility/*.java</sonar.exclusions>
+		<sonar.jacoco.reportPath>${project.basedir}/target/jacoco.exec</sonar.jacoco.reportPath>
     </properties>
 	<dependencies>
 		<dependency>
@@ -44,6 +45,13 @@
 	</dependencies>
 
 	<build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+        <sourceDirectory>src/main/java</sourceDirectory>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
