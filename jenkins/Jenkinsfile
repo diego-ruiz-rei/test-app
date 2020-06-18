@@ -29,6 +29,7 @@ spec:
     volumeMounts:
     - mountPath: /home/jenkins/.m2
       name: maven-slave-pvc
+      readOnly: false
   - name: docker
     image: docker:latest
     command:
@@ -62,6 +63,7 @@ spec:
             steps { 
                 container('maven') {
                     sh 'mvn -B -DskipTests clean package'
+                    sh 'ls /home/jenkins/.m2/repository'
                 }
             }
         }
