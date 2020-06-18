@@ -63,7 +63,8 @@ spec:
             steps { 
                 container('maven') {
                     sh 'mvn -B -DskipTests clean package'
-                    sh 'ls /home/jenkins/.m2/repository'
+                    sh "mvn help:evaluate -Dexpression=settings.localRepository | grep -v '\[INFO\]'"
+
                 }
             }
         }
