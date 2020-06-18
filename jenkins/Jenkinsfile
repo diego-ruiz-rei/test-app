@@ -27,8 +27,8 @@ spec:
     - cat
     tty: true
     volumeMounts:
-    - mountPath: /home/jenkins/.m2
-      name: maven-slave-pvc
+    - mountPath: /root/.m2
+      name: maven-slave-pvc2
       readOnly: false
   - name: docker
     image: docker:latest
@@ -47,9 +47,9 @@ spec:
   - name: docker-sock
     hostPath: 
       path: /var/run/docker.sock
-  - name: maven-slave-pvc
+  - name: maven-slave-pvc2
     hostPath:
-      path: /home/jenkins/.m2
+      path: /root/.m2
 """
     }
   }
