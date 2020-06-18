@@ -1,14 +1,14 @@
 #!groovy
-// This script works with native Jenkins pipeline
-// Jenkins declarative Pipeline as it is the future: https://stackoverflow.com/questions/44657896/jenkins-pipeline-jenkinsfile-node-and-pipeline-directives
-// library identifier: "pipeline-library@master",
-//         retriever: modernSCM(
-//                 [
-//                         $class: "GitSCMSource",
-//                         //remote: "https://github.com/redhat-cop/pipeline-library.git"
-//                         remote: "https://github.com/REI-Systems/pipeline-library.git"
-//                 ]
-//         )
+This script works with native Jenkins pipeline
+Jenkins declarative Pipeline as it is the future: https://stackoverflow.com/questions/44657896/jenkins-pipeline-jenkinsfile-node-and-pipeline-directives
+library identifier: "pipeline-library@master",
+        retriever: modernSCM(
+                [
+                        $class: "GitSCMSource",
+                        //remote: "https://github.com/redhat-cop/pipeline-library.git"
+                        remote: "https://github.com/REI-Systems/pipeline-library.git"
+                ]
+        )
 
 pipeline { 
     agent {
@@ -66,7 +66,7 @@ spec:
                     //notifyGithubStatusCheck('PENDING', 'Continuous integration: Run unit test!')
 
                     sh "mvn test"
-                    //step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
+                    step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
                 }
             } 
         }
@@ -74,16 +74,16 @@ spec:
             steps {
                 container('maven') {
                     sh 'mvn sonar:sonar jacoco:report -Dsonar.login=admin -Dsonar.password=admin -Dsonar.host.url=http://sonarqube-sonarqube:9000 -DskipTests=true'
-                    // timeout(time: 5, unit: 'MINUTES') { // Just in case something goes wrong, pipeline will be killed after a timeout
-                    //     def qg = waitForQualityGate() // Reuse taskId previously collected by withSonarQubeEnv
-                    //     echo "Pipeline quality gate status: ${qg.status}"
-                    //     if (qg.status == 'ERROR') {
-                    //         echo "Pipeline aborted due to quality gate failure: ${qg.status}"
-                    //         // TODO: swap the comment out the 2 lines below to mark the build as failed when quality gate failed
-                    //         //error "Pipeline aborted due to quality gate failure: ${qg.status}"
-                    //         input message: 'SQ Quality Gate Failed, continue?'
-                    //     }
-                    // }
+                    timeout(time: 5, unit: 'MINUTES') { // Just in case something goes wrong, pipeline will be killed after a timeout
+                        def qg = waitForQualityGate() // Reuse taskId previously collected by withSonarQubeEnv
+                        echo "Pipeline quality gate status: ${qg.status}"
+                        if (qg.status == 'ERROR') {
+                            echo "Pipeline aborted due to quality gate failure: ${qg.status}"
+                            // TODO: swap the comment out the 2 lines below to mark the build as failed when quality gate failed
+                            //error "Pipeline aborted due to quality gate failure: ${qg.status}"
+                            input message: 'SQ Quality Gate Failed, continue?'
+                        }
+                    }
                 }
             }
         }
