@@ -26,6 +26,9 @@ spec:
     command:
     - cat
     tty: true
+    volumeMounts:
+    - mountPath: /home/jenkins/.m2
+      name: maven-slave-pvc
   - name: docker
     image: docker:latest
     command:
@@ -43,6 +46,9 @@ spec:
   - name: docker-sock
     hostPath: 
       path: /var/run/docker.sock
+  - name: maven-slave-pvc
+    hostPath:
+      path: /home/jenkins/.m2
 """
     }
   }
