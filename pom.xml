@@ -22,7 +22,7 @@
         
         <jacoco.version>0.8.3</jacoco.version>
         <sonar.cpd.exclusions>src/main/java/**/model/*.java, src/main/java/**/dto/*.java </sonar.cpd.exclusions>
-        <sonar.exclusions>src/main/java/**/AppSpringBoot.java, src/main/java/**/filter/CustomCORSFilter.java, src/main/java/**/config/*.java, src/main/java/**/utility/*.java</sonar.exclusions>
+        <sonar.exclusions>src/main/java/**/DemoApplication.java, src/main/java/**/filter/CustomCORSFilter.java, src/main/java/**/config/*.java, src/main/java/**/utility/*.java</sonar.exclusions>
 		<sonar.jacoco.reportPath>${project.basedir}/target/jacoco.exec</sonar.jacoco.reportPath>
     </properties>
 	<dependencies>
@@ -42,6 +42,11 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+		<dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>${jacoco.version}</version>
+        </dependency>
 	</dependencies>
 
 	<build>
