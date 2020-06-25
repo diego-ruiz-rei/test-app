@@ -46,6 +46,12 @@ spec:
     command:
     - cat
     tty: true
+  # security scans
+  - name: trivy
+    image: aquasec/trivy:latest
+    command:
+    - cat
+    tty: true
   volumes:
   # use host docker
   - name: docker-sock
@@ -108,6 +114,13 @@ spec:
                             customImage.push()
                         }
                     }
+                }
+            }
+        }
+        stage('Trivy scan'){
+            steps{
+                container('trivy'){
+                    sh "trivy image diegoruizrei/infra-test:${env.GIT_COMMIT}"
                 }
             }
         }
