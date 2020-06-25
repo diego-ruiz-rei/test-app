@@ -91,7 +91,9 @@ spec:
         stage('Sonar') {
             steps {
                 container('maven') {
-                    sh 'mvn sonar:sonar jacoco:report -Dsonar.login=admin -Dsonar.password=admin -Dsonar.host.url=http://sonarqube-sonarqube:9000 -DskipTests=true'
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "sonar", passwordVariable: 'pass', usernameVariable: 'user']]) {
+                        sh 'mvn sonar:sonar jacoco:report -Dsonar.login=${user} -Dsonar.password=${pass} -Dsonar.host.url=http://sonarqube-sonarqube:9000 -DskipTests=true'
+                    }
                     // timeout(time: 5, unit: 'MINUTES') { // Just in case something goes wrong, pipeline will be killed after a timeout
                     //     def qg = waitForQualityGate() // Reuse taskId previously collected by withSonarQubeEnv
                     //     echo "Pipeline quality gate status: ${qg.status}"
@@ -109,8 +111,8 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        docker.withRegistry('', 'dockerhub') {
-                            def customImage = docker.build("diegoruizrei/infra-test:${env.GIT_COMMIT}", "--network=host .")
+                        docker.withRegistry('http://sonatype-nexus-service:8082', 'nexus') {
+                            def customImage = docker.build("docker/infra-test:${env.GIT_COMMIT}", "--network=host .")
                             customImage.push()
                         }
                     }
@@ -120,7 +122,13 @@ spec:
         stage('Trivy scan'){
             steps{
                 container('trivy'){
-                    sh "trivy image diegoruizrei/infra-test:${env.GIT_COMMIT}"
+                    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "nexus", passwordVariable: 'pass', usernameVariable: 'user']]) {
+                        sh "TRIVY_AUTH_URL=http://sonatype-nexus-service:8082"
+                        sh "export TRIVY_USERNAME=${user}"
+                        sh "export TRIVY_PASSWORD=${pass}"
+                        sh "export TRIVY_NON_SSL=true"
+                        sh "trivy image docker/infra-test:${env.GIT_COMMIT}"
+                    }
                 }
             }
         }
@@ -134,7 +142,7 @@ spec:
                     sh "git config --global user.email 'ci@ci.com'"
 
                     dir("test-app-deploy") {
-                        sh "cd ./base && kustomize edit set image diegoruizrei/infra-test:${env.GIT_COMMIT}"
+                        sh "cd ./base && kustomize edit set image docker/infra-test:${env.GIT_COMMIT}"
                         sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
                     }
                 }
