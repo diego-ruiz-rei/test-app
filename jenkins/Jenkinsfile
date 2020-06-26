@@ -117,7 +117,7 @@ spec:
                             // sh """
                             // docker login -u admin -p admin123 docker.drtest.reisys.io
                             // """
-                            def customImage = docker.build("docker.drtest.reisys.io/infra-test:${env.GIT_COMMIT}", "--network=host .")
+                            def customImage = docker.build("docker.drtest.reisys.io/infra-test:0.0.${env.BUILD_NUMBER}", "--network=host .")
                             customImage.push()
                         }
                     }
@@ -132,7 +132,7 @@ spec:
                         sh "export TRIVY_USERNAME=${user}"
                         sh "export TRIVY_PASSWORD=${pass}"
                         sh "export TRIVY_NON_SSL=true"
-                        sh "trivy image docker.drtest.reisys.io/infra-test:${env.GIT_COMMIT}"
+                        sh "trivy image docker.drtest.reisys.io/infra-test:0.0.${env.BUILD_NUMBER}"
                     }
                 }
             }
@@ -147,7 +147,7 @@ spec:
                     sh "git config --global user.email 'ci@ci.com'"
 
                     dir("test-app-deploy") {
-                        sh "cd ./base && kustomize edit set image docker.drtest.reisys.io/infra-test:${env.GIT_COMMIT}"
+                        sh "cd ./base && kustomize edit set image docker.drtest.reisys.io/infra-test:0.0.${env.BUILD_NUMBER}"
                         sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
                     }
                 }
