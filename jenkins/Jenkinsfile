@@ -113,13 +113,13 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        //docker.withRegistry('http://sonatype-nexus-service:8082', 'nexus') {
-                            sh """
-                            docker login -u admin -p admin123 sonatype-nexus-service:8082
-                            """
-                            def customImage = docker.build("sonatype-nexus-service:8082/infra-test:${env.GIT_COMMIT}", "--network=host .")
+                        docker.withRegistry('https://docker.drtest.reisys.io', 'nexus') {
+                            // sh """
+                            // docker login -u admin -p admin123 docker.drtest.reisys.io
+                            // """
+                            def customImage = docker.build("docker.drtest.reisys.io/infra-test:${env.GIT_COMMIT}", "--network=host .")
                             customImage.push()
-                        //}
+                        }
                     }
                 }
             }
@@ -128,11 +128,11 @@ spec:
             steps{
                 container('trivy'){
                     withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "nexus", passwordVariable: 'pass', usernameVariable: 'user']]) {
-                        sh "export TRIVY_AUTH_URL=sonatype-nexus-service:8082"
+                        sh "export TRIVY_AUTH_URL=https://docker.drtest.reisys.io"
                         sh "export TRIVY_USERNAME=${user}"
                         sh "export TRIVY_PASSWORD=${pass}"
                         sh "export TRIVY_NON_SSL=true"
-                        sh "trivy image sonatype-nexus-service:8082/infra-test:${env.GIT_COMMIT}"
+                        sh "trivy image docker.drtest.reisys.io/infra-test:${env.GIT_COMMIT}"
                     }
                 }
             }
@@ -147,7 +147,7 @@ spec:
                     sh "git config --global user.email 'ci@ci.com'"
 
                     dir("test-app-deploy") {
-                        sh "cd ./base && kustomize edit set image sonatype-nexus-service:8082/infra-test:${env.GIT_COMMIT}"
+                        sh "cd ./base && kustomize edit set image docker.drtest.reisys.io/infra-test:${env.GIT_COMMIT}"
                         sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
                     }
                 }
