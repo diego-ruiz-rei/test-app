@@ -131,7 +131,6 @@ spec:
                         sh "export TRIVY_AUTH_URL=https://docker.drtest.reisys.io"
                         sh "export TRIVY_USERNAME=${user}"
                         sh "export TRIVY_PASSWORD=${pass}"
-                        sh "export TRIVY_NON_SSL=true"
                         sh "trivy image docker.drtest.reisys.io/infra-test:0.0.${env.BUILD_NUMBER}"
                     }
                 }
