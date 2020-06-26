@@ -61,6 +61,8 @@ spec:
   - name: maven-slave-pvc2
     hostPath:
       path: /root/.m2
+  imagePullSecrets:
+  - nexuscred
 """
     }
   }
