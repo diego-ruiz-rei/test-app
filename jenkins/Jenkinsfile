@@ -113,7 +113,7 @@ spec:
                     script {
                         //docker.withRegistry('http://sonatype-nexus-service:8082', 'nexus') {
                             sh """
-                            docker login -u admin -p admin123 --network=host sonatype-nexus-service:8082
+                            docker login -u admin -p admin123 sonatype-nexus-service:8082
                             """
                             def customImage = docker.build("sonatype-nexus-service:8082/infra-test:${env.GIT_COMMIT}", "--network=host .")
                             customImage.push()
