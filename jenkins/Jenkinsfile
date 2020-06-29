@@ -10,6 +10,8 @@ library identifier: "pipeline-library@master",
                 ]
         )
 
+def baseUrl="drtest0629.reisys.oio"
+
 pipeline { 
     agent {
     kubernetes {
@@ -116,11 +118,8 @@ spec:
             steps {
                 container('docker') {
                     script {
-                        docker.withRegistry('https://docker.drtest.reisys.io', 'nexus') {
-                            // sh """
-                            // docker login -u admin -p admin123 docker.drtest.reisys.io
-                            // """
-                            def customImage = docker.build("docker.drtest.reisys.io/infra-test:0.0.${env.BUILD_NUMBER}", "--network=host .")
+                        docker.withRegistry('https://docker.'+baseUrl, 'nexus') {
+                            def customImage = docker.build("docker.${baseUrl}/infra-test:0.0.${env.BUILD_NUMBER}", "--network=host .")
                             customImage.push()
                         }
                     }
@@ -131,10 +130,10 @@ spec:
             steps{
                 container('trivy'){
                     withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "nexus", passwordVariable: 'pass', usernameVariable: 'user']]) {
-                        sh "export TRIVY_AUTH_URL=https://docker.drtest.reisys.io"
+                        sh "export TRIVY_AUTH_URL=https://docker.${baseUrl}"
                         sh "export TRIVY_USERNAME=${user}"
                         sh "export TRIVY_PASSWORD=${pass}"
-                        sh "trivy image docker.drtest.reisys.io/infra-test:0.0.${env.BUILD_NUMBER}"
+                        sh "trivy image docker.${baseUrl}/infra-test:0.0.${env.BUILD_NUMBER}"
                     }
                 }
             }
@@ -149,7 +148,7 @@ spec:
                     sh "git config --global user.email 'ci@ci.com'"
 
                     dir("test-app-deploy") {
-                        sh "cd ./base && kustomize edit set image docker.drtest.reisys.io/infra-test:0.0.${env.BUILD_NUMBER}"
+                        sh "cd ./base && kustomize edit set image docker.${baseUrl}/infra-test:0.0.${env.BUILD_NUMBER}"
                         sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
                     }
                 }
