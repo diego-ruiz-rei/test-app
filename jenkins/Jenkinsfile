@@ -10,7 +10,7 @@ library identifier: "pipeline-library@master",
                 ]
         )
 
-def baseUrl="drtest0629.reisys.oio"
+def baseUrl="drtest0629.reisys.io"
 
 pipeline { 
     agent {
