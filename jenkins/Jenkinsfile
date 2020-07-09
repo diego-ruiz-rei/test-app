@@ -1,16 +1,10 @@
 #!groovy
 // This script works with native Jenkins pipeline
 // Jenkins declarative Pipeline as it is the future: https://stackoverflow.com/questions/44657896/jenkins-pipeline-jenkinsfile-node-and-pipeline-directives
-library identifier: "pipeline-library@master",
-        retriever: modernSCM(
-                [
-                        $class: "GitSCMSource",
-                        //remote: "https://github.com/redhat-cop/pipeline-library.git"
-                        remote: "https://github.com/REI-Systems/pipeline-library.git"
-                ]
-        )
-
-def baseUrl="drtest0629.reisys.io"
+def baseUrl="jmeks20.reisys.io"
+def APPLICATION_BUILD_NAME, APP_VERSION, SELENIUM_HUB, APPLICATION_URL_DEV, DOCKER_IMAGE
+APPLICATION_BUILD_NAME = "infra-test"
+APP_VERSION = "latest"
 
 pipeline { 
     agent {
@@ -48,6 +42,11 @@ spec:
     command:
     - cat
     tty: true
+  - name: helm
+    image: lachlanevenson/k8s-helm:latest
+    command:
+    - cat
+    tty: true
   # security scans
   - name: trivy
     image: aquasec/trivy:latest
@@ -77,29 +76,82 @@ spec:
         timeout(time: 40, unit: 'MINUTES')
     }
     stages {
-        stage('Build') { 
+        stage('Checkout SCM & Initialize') {
+            steps {
+                script {
+                    container('maven') {
+                        checkout scm: scm
+                        // Turn off Git's SSL cert check, uncomment if needed
+                        // sh 'git config --global http.sslVerify false'
+                        println("env.BRANCH_NAME:" + env.BRANCH_NAME)
+                        println("env.GIT_COMMIT:" + env.GIT_COMMIT.substring(0, 6))
+                        println("env.CHANGE_ID:" + env.CHANGE_ID)
+                        // print out all environments
+                        sh 'printenv'
+
+                        //notifySlack('STARTED', 'Job started!')
+
+                        // setup application version and name if this branch requires app on demand
+                        if (env.BRANCH_NAME.startsWith('feature-')) {
+                            APP_VERSION = env.BRANCH_NAME.replaceAll('/', '')
+                        } else if (env.BRANCH_NAME.startsWith('PR-') && env.CHANGE_BRANCH.startsWith('feature-') && env.CHANGE_TARGET.startsWith('develop')) {
+                            // get the feature branch name from different variable when this is a PR case and not a commit to the feature branch itself
+                            APP_VERSION = env.CHANGE_BRANCH.replaceAll('/', '')
+                        }
+                    }
+                }
+            }
+        }
+        stage('Build') {
+            when {
+                expression {
+                    return ((env.BRANCH_NAME.startsWith('PR-') && env.CHANGE_BRANCH.startsWith('feature-') && env.CHANGE_TARGET.startsWith('develop')) || env.BRANCH_NAME.startsWith('feature-') || env.BRANCH_NAME == 'develop')
+                }
+            }
             steps { 
                 container('maven') {
+                    // Report back to github: Status Check PENDING
+                    notifyGithubStatusCheck('PENDING', 'Continuous integration started!')
+
+                    // Report back to github: Status Check PENDING
+                    notifyGithubStatusCheck('PENDING', 'Continuous integration: Build the App!')
+
                     sh 'mvn -B -DskipTests clean package'
                 }
             }
         }
         stage('Tests') {
+            when {
+                expression {
+                    return ((env.BRANCH_NAME.startsWith('PR-') && env.CHANGE_BRANCH.startsWith('feature-') && env.CHANGE_TARGET.startsWith('develop')) || env.BRANCH_NAME.startsWith('feature-') || env.BRANCH_NAME == 'develop')
+                }
+            }
             steps {
                 container('maven') {
                     // Report back to github: Status Check PENDING
-                    //notifyGithubStatusCheck('PENDING', 'Continuous integration: Run unit test!')
+                    notifyGithubStatusCheck('PENDING', 'Continuous integration: Run unit test!')
 
                     sh "mvn test"
                     step([$class: 'JUnitResultArchiver', testResults: '**/target/surefire-reports/TEST-*.xml'])
                 }
             } 
         }
-        stage('Sonar') {
+        stage('SonarQube Code Analysis') {
+            when {
+                expression {
+                    return ((env.BRANCH_NAME.startsWith('PR-') && env.CHANGE_BRANCH.startsWith('feature-') && env.CHANGE_TARGET.startsWith('develop')) || env.BRANCH_NAME.startsWith('feature-') || env.BRANCH_NAME == 'develop')
+                }
+            }
             steps {
+                // Report back to github: Status Check PENDING
+                notifyGithubStatusCheck('PENDING', 'Continuous integration: Run code analysis!')
+
                 container('maven') {
                     withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "sonar", passwordVariable: 'pass', usernameVariable: 'user']]) {
-                        sh 'mvn sonar:sonar jacoco:report -Dsonar.login=${user} -Dsonar.password=${pass} -Dsonar.host.url=http://sonarqube-sonarqube:9000 -DskipTests=true'
+                        // Create a new SonarQube analysis and dashboard for this new/updated feature branch / app
+                        def additionalParams =  (env.BRANCH_NAME.startsWith('feature-')) ? " -Dsonar.projectKey=${APPLICATION_BUILD_NAME}-${APP_VERSION} -Dsonar.projectName=${APPLICATION_BUILD_NAME}-${APP_VERSION}" : ""
+
+                        sh "mvn sonar:sonar jacoco:report -Dsonar.login=${user} -Dsonar.password=${pass} -Dsonar.host.url=http://sonarqube-sonarqube:9000 -DskipTests=true -Dsonar.projectVersion=${env.GIT_COMMIT.substring(0, 6)} ${additionalParams}"
                     }
                     // timeout(time: 5, unit: 'MINUTES') { // Just in case something goes wrong, pipeline will be killed after a timeout
                     //     def qg = waitForQualityGate() // Reuse taskId previously collected by withSonarQubeEnv
@@ -115,44 +167,210 @@ spec:
             }
         }
         stage('Build Image and push') {
+            when {
+                expression {
+                    return (env.BRANCH_NAME.startsWith('feature-') || env.BRANCH_NAME == 'develop')
+                }
+            }
+            environment {
+                GIT_CREDS = credentials('git-jm')
+            }
             steps {
                 container('docker') {
                     script {
                         docker.withRegistry('https://docker.'+baseUrl, 'nexus') {
-                            def customImage = docker.build("docker.${baseUrl}/infra-test:0.0.${env.BUILD_NUMBER}", "--network=host .")
-                            customImage.push()
+                            DOCKER_IMAGE = docker.build("docker.${baseUrl}/${APPLICATION_BUILD_NAME}:${APP_VERSION}-${env.BUILD_NUMBER}", "--network=host .")
+                            DOCKER_IMAGE.push()
+                            // Always oush `latest` tag for either PR build or `master` build
+                            if (env.BRANCH_NAME.startsWith('feature-')) {
+                                DOCKER_IMAGE.push("${APP_VERSION}-latest")
+                            } else if(env.BRANCH_NAME == 'develop') {
+                                DOCKER_IMAGE.push("${APP_VERSION}")
+                            }
+                        }
+
+                        // Multi-branch workflow for Build and Tag Image based based on the env.BRANCH_NAME
+                        if (env.BRANCH_NAME.startsWith('feature-')) {
+                            container('tools') {
+                                sh "git clone https://$GIT_CREDS_USR:$GIT_CREDS_PSW@github.com/JihadMotii-REISys/test-app-deploy.git"
+                                sh "git config --global user.email 'ci@ci.com'"
+
+                                dir("test-app-deploy") {
+                                    // check if this feature branch is new (first commit)
+                                    if (!fileExists("./${APP_VERSION}/kustomization.yaml")) {
+                                        sh "cp -rf ./feature ./${APP_VERSION}"
+                                        sh "sed -i 's@__BRANCH_NAME__@${APP_VERSION}@' ./${APP_VERSION}/ingress.yaml" // rename the host URL for this newly feature App
+                                        sh "git add ./${APP_VERSION}"
+                                    }
+
+                                    sh "cd ./${APP_VERSION} && kustomize edit set image docker.${baseUrl}/${APPLICATION_BUILD_NAME}:${APP_VERSION}-${env.BUILD_NUMBER} && kustomize edit set namesuffix -- -${APP_VERSION}"
+                                    sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
+
+                                    try {
+                                        sh "helm upgrade ${APPLICATION_BUILD_NAME}-${APP_VERSION} ./argocd-app --set branch.name=${APP_VERSION} --set destination.namespace=feature -n feature"
+                                    } catch (Exception ex) {
+                                        sh "helm install ${APPLICATION_BUILD_NAME}-${APP_VERSION} ./argocd-app --set branch.name=${APP_VERSION} --set destination.namespace=feature -n feature"
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
         stage('Trivy scan'){
+            when {
+                expression {
+                    return ((env.BRANCH_NAME.startsWith('PR-') && env.CHANGE_BRANCH.startsWith('feature-') && env.CHANGE_TARGET.startsWith('develop')) || env.BRANCH_NAME.startsWith('feature-') || env.BRANCH_NAME == 'develop')
+                }
+            }
             steps{
+                // Report back to github: Status Check PENDING
+                notifyGithubStatusCheck('PENDING', 'Continuous integration: Run security scan!')
+
                 container('trivy'){
                     withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: "nexus", passwordVariable: 'pass', usernameVariable: 'user']]) {
                         sh "export TRIVY_AUTH_URL=https://docker.${baseUrl}"
                         sh "export TRIVY_USERNAME=${user}"
                         sh "export TRIVY_PASSWORD=${pass}"
-                        sh "trivy image docker.${baseUrl}/infra-test:0.0.${env.BUILD_NUMBER}"
+                        def imageTag = (env.BRANCH_NAME.startsWith('PR-') && env.CHANGE_BRANCH.startsWith('feature-') && env.CHANGE_TARGET.startsWith('develop')) ? "${APP_VERSION}-latest" : "${APP_VERSION}-${env.BUILD_NUMBER}"
+                        sh "trivy image docker.${baseUrl}/${APPLICATION_BUILD_NAME}:${imageTag}"
                     }
                 }
             }
         }
-        stage('Deploy develop') {
+        stage('Promote from Build to Dev') {
+            when {
+                expression {
+                    return env.BRANCH_NAME == 'develop'
+                }
+            }
             environment {
-                GIT_CREDS = credentials('git')
+                GIT_CREDS = credentials('git-jm')
             }
             steps {
                 container('tools') {
-                    sh "git clone https://$GIT_CREDS_USR:$GIT_CREDS_PSW@github.com/diego-ruiz-rei/test-app-deploy.git"
+                    sh "git clone https://$GIT_CREDS_USR:$GIT_CREDS_PSW@github.com/JihadMotii-REISys/test-app-deploy.git"
                     sh "git config --global user.email 'ci@ci.com'"
 
                     dir("test-app-deploy") {
-                        sh "cd ./base && kustomize edit set image docker.${baseUrl}/infra-test:0.0.${env.BUILD_NUMBER}"
+                        sh "cd ./develop && kustomize edit set image docker.${baseUrl}/${APPLICATION_BUILD_NAME}:${APP_VERSION}-${env.BUILD_NUMBER}"
                         sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
                     }
                 }
             }
         }
+
+        stage('Promote from Dev to Stage') {
+            when {
+                expression {
+                    return env.BRANCH_NAME == 'develop'
+                }
+            }
+            environment {
+                GIT_CREDS = credentials('git-jm')
+            }
+            steps {
+                container('tools') {
+                    dir("test-app-deploy") {
+                        sh "cd ./staging && kustomize edit set image docker.${baseUrl}/${APPLICATION_BUILD_NAME}:${APP_VERSION}-${env.BUILD_NUMBER}"
+                        sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
+                    }
+                }
+            }
+        }
+
+        stage('Promote from Stage to Prod') {
+            when {
+                expression {
+                    return env.BRANCH_NAME == 'master'
+                }
+            }
+            environment {
+                GIT_CREDS = credentials('git-jm')
+            }
+            steps {
+                container('docker'){
+                    script {
+                        def imageTag = "master-${env.BUILD_NUMBER}"
+                        docker.withRegistry('https://docker.'+baseUrl, 'nexus') {
+                            // Pull APP_VERSION=`latest` image tagged through `develop` branch pipeline when a PR get's merged into it
+                            DOCKER_IMAGE = docker.image("docker.${baseUrl}/${APPLICATION_BUILD_NAME}:${APP_VERSION}")
+                            DOCKER_IMAGE.pull()
+                            DOCKER_IMAGE.push("${imageTag}")
+                        }
+
+                        container('tools') {
+                            sh "git clone https://$GIT_CREDS_USR:$GIT_CREDS_PSW@github.com/JihadMotii-REISys/test-app-deploy.git"
+                            sh "git config --global user.email 'ci@ci.com'"
+
+                            dir("test-app-deploy") {
+                                sh "cd ./prod && kustomize edit set image docker.${baseUrl}/${APPLICATION_BUILD_NAME}:${imageTag}"
+                                sh "git commit -am 'Publish new version' && git push || echo 'no changes'"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'This will always run'
+        }
+        success {
+            echo 'This will run only if successful'
+            // notifySlack('SUCCESS', 'Job successfully finished!')
+
+            // Report back to github: Status Check to enable the PR for merge
+            notifyGithubStatusCheck('SUCCESS', 'Continuous integration succeeded!')
+        }
+        failure {
+            echo 'This will run only if failed'
+            // notifySlack('FAILED', 'Job failed!')
+
+            // Report back to github: Status Check to disable the PR for merge
+            notifyGithubStatusCheck('FAILURE', 'Continuous integration failed!')
+        }
+        unstable {
+            echo 'This will run only if the run was marked as unstable'
+            // notifySlack('UNSTABLE', 'Job unstable!')
+        }
+        changed {
+            echo 'This will run only if the state of the Pipeline has changed'
+            echo 'For example, if the Pipeline was previously failing but is now successful'
+        }
+    }
+}
+
+def notifySlack(String buildStatus = 'STARTED', additionalMessage = null) {
+    // Build status of null means success.
+    buildStatus = buildStatus ?: 'SUCCESS'
+
+    def color
+
+    if (buildStatus == 'STARTED') {
+        color = '#D4DADF'
+    } else if (buildStatus == 'SUCCESS') {
+        color = '#BDFFC3'
+    } else if (buildStatus == 'UNSTABLE') {
+        color = '#FFFE89'
+    } else {
+        color = '#FF9FA1'
+    }
+
+    def msg = "${buildStatus}: `${env.JOB_NAME}` #${env.BUILD_NUMBER}:\n${env.BUILD_URL}\n${additionalMessage}"
+
+    slackSend(color: color, message: msg)
+}
+
+// Report back to github: Status Check to enable or disable the PR for merge
+def notifyGithubStatusCheck(String status = 'SUCCESS', String description) {
+    if (env.BRANCH_NAME.startsWith('PR-') && env.CHANGE_BRANCH.startsWith('feature-') && env.CHANGE_TARGET.startsWith('develop')) {
+        // https://jenkins.io/doc/pipeline/steps/pipeline-githubnotify-step/
+        // https://developer.github.com/v3/repos/statuses/
+        // Report back to github: Status Check to enable the PR for merge
+        githubNotify description: description,  status: status, context: 'continuous-integration/jenkins/pr-head'
     }
 }
